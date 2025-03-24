@@ -11,3 +11,7 @@ RAG techniques have become more sophisticated than a simple similarity search
 I aim to implement [hybrid search](https://www.pinecone.io/learn/hybrid-search-intro/), rerankers [[1](https://www.pinecone.io/learn/series/rag/rerankers/), [2](https://www.pinecone.io/learn/refine-with-rerank/)]
 
 I will be methodical in choosing an appropriate [embedding-model](https://www.pinecone.io/learn/series/rag/embedding-models-rundown/) and [vector database](https://www.pinecone.io/learn/vector-database/)
+
+## vector db
+
+redis
