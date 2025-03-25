@@ -5,15 +5,36 @@ import time
 import numpy as np
 from pprint import pprint
 
-with open("data/wikihowAll.json", "r", encoding="utf-8") as f:
+from redis.commands.search.field import (
+    TextField,
+    NumericField,
+    TagField,
+    VectorField
+)
+
+from redis.commands.search.indexDefinition import (
+    IndexDefinition,
+    IndexType
+)
+
+from redis.commands.search.query import Query
+
+############
+## DOCUMENTS
+
+# 1. connect to redis server
+client = redis.Redis(decode_responses=True)
+
+# 2. fetch data
+with open("data/wikihow_10.json", "r", encoding="utf-8") as f:
     start = time.time()
     data = json.load(f)
     end = time.time()
     elapsed = end - start
     print(f"data loaded in {elapsed:2f} seconds")
 
-client = redis.Redis(decode_responses=True)
-pipeline = client.pipeline()
+# 3. store data in redis
+pipeline = client.pipeline() # lazy loading 
 
 for i, article in enumerate(data[0]):
     redis_key = f"article:{i:03}"
@@ -21,10 +42,12 @@ for i, article in enumerate(data[0]):
 
 pipeline.execute()
 
+# 4. select text embedding model
 embedding_model = SentenceTransformer(
     model_name_or_path="msmarco-distilbert-base-v4"
 )
 
+# 5. generate and store text embeddings
 keys = sorted(client.keys(pattern="article:*"))
 
 text = client.json().mget(keys=keys, path="$.text")
@@ -33,6 +56,9 @@ text = [item for sublist in text for item in sublist]
 text_embeddings = embedding_model.encode(
     sentences=text
 ).astype(dtype=np.float16).tolist()
+
+VECTOR_DIM = len(text_embeddings[0])
+print("embeddings ready")
 
 pipeline = client.pipeline()
 
@@ -44,24 +70,33 @@ pipeline.execute()
 res = client.json().get(name="article:007")
 pprint(res)
 
+############
+## QUERY
 
-# text embeddings should be sufficient for retrieval
+# 1. create index
 
-# headline = client.json().mget(keys=keys, path="$.headline")
-# headline = [item for sublist in headline for item in sublist]
+schema = (
+    TextField(name="$.title", no_stem=True, as_name="title"),
+    TextField(name="$.headline", no_stem=True, as_name="headline"),
+    TextField(name="$.text", no_stem=True, as_name="text"),
+    VectorField(
+        name="$.text_embeddings",
+        algorithm="FLAT",
+        attributes={
+            "TYPE": np.float16,
+            "DIM": VECTOR_DIM,
+            "DISTANCE_METRIC": "COSINE"
+        },
+        as_name="vector"
+        )
+)
 
-# headline_embeddings = embedding_model.encode(
-#     sentences=headline
-# ).astype(dtype=np.float16).tolist()
+definition = IndexDefinition(prefix="article:", index_type=IndexType.JSON)
 
-# title = client.json().mget(keys=keys, path="$.title")
-# title = [item for sublist in title for item in sublist]
+res = client.ft(index_name="idx:article_vs").create_index(fields=schema,definition=definition)
 
-# title_embeddings = embedding_model.encode(
-#     sentences=title
-# ).astype(dtype=np.float16).tolist()
-# for key, embedding in zip(keys, headline_embeddings):
-#     pipeline.json().set(name=key, path="$.headline_embeddings", obj=embedding)
+info = client.ft("idx:article_vs").info()
+num_docs = info["num_docs"]
+indexing_failures = info["hash_indexing_failures"]
 
-# for key, embedding in zip(keys, title_embeddings):
-#     pipeline.json().set(name=key, path="$.title_embeddings", obj=embedding)
+print(f"{num_docs} documents indexed with {indexing_failures} failures")
