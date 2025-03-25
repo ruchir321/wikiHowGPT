@@ -14,4 +14,8 @@ I will be methodical in choosing an appropriate [embedding-model](https://www.pi
 
 ## vector db
 
-redis
+redis [[1](https://redis.io/docs/latest/develop/get-started/vector-database/#4-generate-text-embeddings), [2](https://redis.io/docs/latest/develop/get-started/rag/)]
+
+## embedding model
+
+[`msmarco-distilbert-base-v4`](https://microsoft.github.io/msmarco/) is widely used for embedding process for chatbots, semantic search.
