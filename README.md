@@ -19,3 +19,9 @@ redis [[1](https://redis.io/docs/latest/develop/get-started/vector-database/#4-g
 ## embedding model
 
 [`msmarco-distilbert-base-v4`](https://microsoft.github.io/msmarco/) is widely used for embedding process for chatbots, semantic search.
+
+
+## ref
+
+1. [Using Redis for real-time RAG goes beyond a Vector Database](https://redis.io/blog/using-redis-for-real-time-rag-goes-beyond-a-vector-database/)
+2. 
