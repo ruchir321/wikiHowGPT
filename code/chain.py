@@ -75,18 +75,19 @@ def load_resources():
 def get_model_output(query):
 
     # semantic cache check
-    result = cache.lookup(prompt=query, llm_string=LLM_MODEL)
-    print(f"\n\nRESULT: \n{result}\n")
+    # result = cache.lookup(prompt=query, llm_string=LLM_MODEL)
+    # print(f"\n\nRESULT: \n{result}\n")
 
-    if result:
-        print("Semantic cache hit:", result[0].text)
-        return result[0].text
+    # if result:
+    #     print("Semantic cache hit:", result[0].text)
+    #     return result[0].text
     
-    else:
-        print("Semantic cache miss")
-        response = rag_chain.invoke(query)
-        cache.update(prompt=query, llm_string=LLM_MODEL, return_val=[Generation(text=response)])
-        return response
+    # else:
+    #     print("Semantic cache miss")
+    #     cache.update(prompt=query, llm_string=LLM_MODEL, return_val=[Generation(text=response)])
+    
+    response = rag_chain.invoke(query)
+    return response
 
 
 # streamlit app
@@ -99,13 +100,13 @@ st.set_page_config(
 rag_chain = load_resources()
 
 # semantic cache init
-cache = RedisSemanticCache(
-        redis_url=REDIS_URL,
-        embedding=OllamaEmbeddings(model=LLM_MODEL),
-        score_threshold=0.1
-        )
+# cache = RedisSemanticCache(
+#         redis_url=REDIS_URL,
+#         embedding=OllamaEmbeddings(model=LLM_MODEL),
+#         score_threshold=0.1
+#         )
 
-set_llm_cache(value=cache)
+# set_llm_cache(value=cache)
 
 st.header("Know the How")
 form_input = st.text_input("Enter query")
