@@ -7,13 +7,14 @@ from langchain_redis import RedisConfig, RedisVectorStore
 from langchain import hub
 
 # semantic cache
-from langchain.globals import set_llm_cache
-from langchain_community.cache import RedisSemanticCache
+# from langchain.globals import set_llm_cache
+# from langchain_community.cache import RedisSemanticCache
+from redisvl.extensions.llmcache import SemanticCache
 
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.outputs import Generation
+# from langchain_core.outputs import Generation
 
 import streamlit as st
 
@@ -29,6 +30,12 @@ REDIS_SEMANTIC_CACHE_URL = dotenv.dotenv_values()["redis_semantic_cache"]
 PROMPT_TEMPLATE = "rlm/rag-prompt"
 LLM_MODEL = "llama3.2"
 
+import torch
+
+torch.classes.__path__ = [os.path.join(torch.__path__[0], torch.classes.__file__)] 
+
+# or simply:
+torch.classes.__path__ = []
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
@@ -86,8 +93,28 @@ def get_model_output(query):
     #     print("Semantic cache miss")
     #     cache.update(prompt=query, llm_string=LLM_MODEL, return_val=[Generation(text=response)])
     
-    response = rag_chain.invoke(query)
-    return response
+
+    results = llmcache.check(
+        prompt=query,
+        num_results=1,
+        distance_threshold=0.1,
+        return_fields=['response']
+    )
+
+    if results:
+        print("Cache hit!")
+        return results[0]["response"]
+
+    else:
+        print("Cache miss")
+        response = rag_chain.invoke(query)
+        llmcache.store(
+            prompt=query,
+            response=response
+        )
+        print("Cache set!")
+
+        return response
 
 
 # streamlit app
@@ -101,12 +128,18 @@ rag_chain = load_resources()
 
 # semantic cache init
 # cache = RedisSemanticCache(
-#         redis_url=REDIS_URL,
+#         redis_url=REDIS_SEMANTIC_CACHE_URL,
 #         embedding=OllamaEmbeddings(model=LLM_MODEL),
 #         score_threshold=0.1
 #         )
-
 # set_llm_cache(value=cache)
+
+llmcache = SemanticCache(
+            name="wikiGPTcache",
+            distance_threshold=0.1,
+            redis_url=REDIS_SEMANTIC_CACHE_URL,
+            ttl=1024
+            )
 
 st.header("Know the How")
 form_input = st.text_input("Enter query")
