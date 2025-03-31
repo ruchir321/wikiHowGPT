@@ -7,14 +7,15 @@ from langchain_redis import RedisConfig, RedisVectorStore
 from langchain import hub
 
 # semantic cache
-# from langchain.globals import set_llm_cache
-# from langchain_community.cache import RedisSemanticCache
 from redisvl.extensions.llmcache import SemanticCache
+
+# LLM memory
+from redisvl.extensions.session_manager import SemanticSessionManager
+import uuid
 
 from langchain_ollama import ChatOllama, OllamaEmbeddings
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-# from langchain_core.outputs import Generation
 
 import streamlit as st
 
@@ -27,8 +28,12 @@ os.environ["LANGSMITH_PROJECT"] = dotenv.dotenv_values()["LANGSMITH_PROJECT"]
 
 REDIS_URL = dotenv.dotenv_values()["redis_vector_db"]
 REDIS_SEMANTIC_CACHE_URL = dotenv.dotenv_values()["redis_semantic_cache"]
+REDIS_LLM_MEMORY_URL = dotenv.dotenv_values()["redis_llm_memory"]
+
 PROMPT_TEMPLATE = "rlm/rag-prompt"
-LLM_MODEL = "llama3.2"
+# EMBEDDING_MODEL = "nomic-embed-text"
+EMBEDDING_MODEL = "llama3.2" # TODO: change to nomic
+LLM_MODEL = "gemma3"
 
 import torch
 
@@ -44,7 +49,7 @@ def format_docs(docs):
 @st.cache_resource
 def load_resources():
     # query embedding model
-    embedding_model = OllamaEmbeddings(model=LLM_MODEL)
+    embedding_model = OllamaEmbeddings(model=EMBEDDING_MODEL)
     
     # vector db connection
     config = RedisConfig(
@@ -79,20 +84,7 @@ def load_resources():
     return rag_chain
 
 @st.cache_data
-def get_model_output(query):
-
-    # semantic cache check
-    # result = cache.lookup(prompt=query, llm_string=LLM_MODEL)
-    # print(f"\n\nRESULT: \n{result}\n")
-
-    # if result:
-    #     print("Semantic cache hit:", result[0].text)
-    #     return result[0].text
-    
-    # else:
-    #     print("Semantic cache miss")
-    #     cache.update(prompt=query, llm_string=LLM_MODEL, return_val=[Generation(text=response)])
-    
+def get_model_output(query, session_id):
 
     results = llmcache.check(
         prompt=query,
@@ -126,16 +118,15 @@ st.set_page_config(
 # Initialize resources once
 rag_chain = load_resources()
 
-# semantic cache init
-# cache = RedisSemanticCache(
-#         redis_url=REDIS_SEMANTIC_CACHE_URL,
-#         embedding=OllamaEmbeddings(model=LLM_MODEL),
-#         score_threshold=0.1
-#         )
-# set_llm_cache(value=cache)
+llmmemory = SemanticSessionManager(
+    name="llm_memory",
+    redis_url=REDIS_LLM_MEMORY_URL,
+    vectorizer=EMBEDDING_MODEL
+)
 
 llmcache = SemanticCache(
             name="wikiGPTcache",
+            vectorizer=OllamaEmbeddings(model=EMBEDDING_MODEL), # the default is sentence-transformers/all-mpnet-base-v2
             distance_threshold=0.1,
             redis_url=REDIS_SEMANTIC_CACHE_URL,
             ttl=1024
@@ -145,5 +136,9 @@ st.header("Know the How")
 form_input = st.text_input("Enter query")
 submit = st.button("Generate")
 
+# session id
+session_id = st.session_state.get('session_id', str(uuid.uuid4()))
+st.session_state['session_id'] = session_id 
+
 if submit:
-    st.write(get_model_output(form_input))
+    st.write(get_model_output(form_input, session_id))
