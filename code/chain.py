@@ -4,7 +4,8 @@ import dotenv
 from langchain_redis import RedisConfig, RedisVectorStore
 
 #prompt template
-from langchain import hub
+# from langchain import hub
+from langchain_core.prompts import  ChatPromptTemplate
 
 # semantic cache
 from redisvl.extensions.llmcache import SemanticCache
@@ -33,7 +34,7 @@ REDIS_LLM_MEMORY_URL = dotenv.dotenv_values()["redis_llm_memory"]
 PROMPT_TEMPLATE = "rlm/rag-prompt"
 # EMBEDDING_MODEL = "nomic-embed-text"
 EMBEDDING_MODEL = "llama3.2" # TODO: change to nomic
-LLM_MODEL = "gemma3"
+LLM_MODEL = "gemma3:4b"
 
 import torch
 
@@ -45,6 +46,15 @@ torch.classes.__path__ = []
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
+def create_prompt_template():
+    prompt_template = ChatPromptTemplate(
+        messages=[
+            ("system", "You are an assistant for question-answering tasks. Use the following pieces of retrieved context to answer the question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise.\nContext: {context}"),
+            ("human", "{question}")
+        ]
+    )
+
+    return prompt_template
 
 @st.cache_resource
 def load_resources():
@@ -65,7 +75,8 @@ def load_resources():
     )
     
     # chat prompt template
-    prompt = hub.pull(PROMPT_TEMPLATE)
+    # prompt = hub.pull(PROMPT_TEMPLATE)
+    prompt = create_prompt_template()
 
     # doc retrieval tool
     retriever = vector_store.as_retriever(
@@ -85,6 +96,15 @@ def load_resources():
 
 @st.cache_data
 def get_model_output(query, session_id):
+
+    chat_history = llmmemory.get_recent(top_k=5, session_tag=session_id, as_text=True)
+
+    print(chat_history)
+    # formatted_history = "\n".join(
+    #     [f"{msg["role"]}: {msg["content"]}" for msg in chat_history]
+    # )
+
+    # full_history = f"{formatted_history}\nUser: {query}\nAssistant:"
 
     results = llmcache.check(
         prompt=query,
@@ -106,7 +126,21 @@ def get_model_output(query, session_id):
         )
         print("Cache set!")
 
-        return response
+    # add user query to chat history
+    llmmemory.add_message(
+        session_tag=session_id,
+        role="user",
+        content=query
+    )
+
+    # add llm response to chat history
+    llmmemory.add_message(
+        session_tag=session_id,
+        role="assistant",
+        content=response
+    )
+
+    return response
 
 
 # streamlit app
@@ -121,12 +155,12 @@ rag_chain = load_resources()
 llmmemory = SemanticSessionManager(
     name="llm_memory",
     redis_url=REDIS_LLM_MEMORY_URL,
-    vectorizer=EMBEDDING_MODEL
+    # vectorizer=EMBEDDING_MODEL # use default
 )
 
 llmcache = SemanticCache(
             name="wikiGPTcache",
-            vectorizer=OllamaEmbeddings(model=EMBEDDING_MODEL), # the default is sentence-transformers/all-mpnet-base-v2
+            # vectorizer=OllamaEmbeddings(model=EMBEDDING_MODEL), # the default is sentence-transformers/all-mpnet-base-v2
             distance_threshold=0.1,
             redis_url=REDIS_SEMANTIC_CACHE_URL,
             ttl=1024
@@ -137,8 +171,8 @@ form_input = st.text_input("Enter query")
 submit = st.button("Generate")
 
 # session id
-session_id = st.session_state.get('session_id', str(uuid.uuid4()))
-st.session_state['session_id'] = session_id 
+session_id = st.session_state.get('session_id', str(uuid.uuid4())) # check if session_id exists, else set new uuid
+st.session_state['session_id'] = session_id
 
 if submit:
     st.write(get_model_output(form_input, session_id))
