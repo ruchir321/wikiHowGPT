@@ -1,3 +1,8 @@
+I forgot what my code from 1 month back is for.
+Help me writing documentation worthy comments.
+Do not change any logic.
+
+In the end give me a summary of how i can improve the code.
 import os
 import dotenv
 

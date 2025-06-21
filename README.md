@@ -1,27 +1,33 @@
-# wikiHow to rag
+# wikiAgent
 
-RAG practice repo
+Agent framework implementation for wikiHow chatbot.
 
-I want to build a RAG powered chatbot for wikiHow type questions
+A chatbot to answer wikiHow type questions
 
 WikiHow articles need a TLDR section. My chatbot will attempt to prepare TLDR summaries (`text-summarization`) for these articles, alongwith answering questions (`question-answering`)
 
-RAG techniques have become more sophisticated than a simple similarity search
+## Architecture
 
-I aim to implement [hybrid search](https://www.pinecone.io/learn/hybrid-search-intro/), rerankers [[1](https://www.pinecone.io/learn/series/rag/rerankers/), [2](https://www.pinecone.io/learn/refine-with-rerank/)]
+Redis vector DB: LLM Memory and document retrival
 
-I will be methodical in choosing an appropriate [embedding-model](https://www.pinecone.io/learn/series/rag/embedding-models-rundown/) and [vector database](https://www.pinecone.io/learn/vector-database/)
+Agent tools:
 
-## vector db
+1. DuckDuckGo Search
+2. Any relevant tool
 
-redis [[1](https://redis.io/docs/latest/develop/get-started/vector-database/#4-generate-text-embeddings), [2](https://redis.io/docs/latest/develop/get-started/rag/)]
+Agent framework provider: `langchain`
 
-## embedding model
+## TODO
 
-[`msmarco-distilbert-base-v4`](https://microsoft.github.io/msmarco/) is widely used for embedding process for chatbots, semantic search.
+* build RAG powered chatbot
+* Do i need local data for RAG?
+* try out langraph
 
+## notes about the branch
+
+wikiAgent is an upgrade to a RAG powered chatbot implemented earlier.
 
 ## ref
 
 1. [Using Redis for real-time RAG goes beyond a Vector Database](https://redis.io/blog/using-redis-for-real-time-rag-goes-beyond-a-vector-database/)
-2. 
+2. [Build a chatbot](https://python.langchain.com/docs/tutorials/chatbot/)
