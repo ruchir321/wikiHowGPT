@@ -13,4 +13,3 @@ llmcache = SemanticCache(
 )
 
 from langchain_redis.cache import RedisSemanticCache # simply a wrapper for the original redis SemanticCache package
-from langchain.globals
